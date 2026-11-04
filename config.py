@@ -36,6 +36,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', '!jh4wm=%s%l&jv7-lru6hg)mq2pk&rd@i*s0*
 
 SENTRY_URL = os.environ.get('SENTRY_URL', None)
 
+PROXY_URL = os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY') or None
+
 if SENTRY_URL:
     import sentry_sdk
 

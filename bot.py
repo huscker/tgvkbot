@@ -21,6 +21,16 @@ from aiovk.mixins import LimitRateDriverMixin
 
 from config import *
 
+_client_session_init = aiohttp.ClientSession.__init__
+
+
+def _client_session_trust_env(self, *args, **kwargs):
+    kwargs.setdefault('trust_env', True)
+    _client_session_init(self, *args, **kwargs)
+
+
+aiohttp.ClientSession.__init__ = _client_session_trust_env
+
 django.conf.ENVIRONMENT_VARIABLE = SETTINGS_VAR
 os.environ.setdefault(SETTINGS_VAR, "settings")
 # Ensure settings are read
@@ -97,7 +107,7 @@ async def get_content(url, docname='tgvkbot.document', chrome_headers=True, rewr
         return {'url': url, 'docname': docname}
 
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN, proxy=PROXY_URL)
 dp = Dispatcher(bot)
 dp.loop.set_task_factory(context.task_factory)
 import traceback
