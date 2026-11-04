@@ -1,11 +1,13 @@
 # tgvkbot (fork)
 
-Fork of [Kylmakalle/tgvkbot](https://github.com/Kylmakalle/tgvkbot) at upstream `0cc387b`, carrying three patches so the bot can be deployed in a Kubernetes cluster behind a proxy. `requirements.txt` is deliberately unchanged from upstream, and the Debian snapshot pin in the Dockerfile is kept, so rebasing stays cheap.
+Fork of [Kylmakalle/tgvkbot](https://github.com/Kylmakalle/tgvkbot) at upstream `0cc387b`, carrying three patches so the bot can be deployed in a Kubernetes cluster behind a proxy. `requirements.txt` is deliberately unchanged from upstream, so rebasing stays cheap.
 
 Replay these three on every rebase:
 
 1. **Proxy support** (`bot.py`, `config.py`) - upstream has none: `aiohttp.ClientSession` is built without `trust_env` and `Bot()` without `proxy=`, so `HTTP_PROXY`/`HTTPS_PROXY` were ignored. `bot.py` now defaults `trust_env=True` on `ClientSession.__init__`, which also covers the sessions `aiovk.drivers` creates internally, and `config.py` exposes `PROXY_URL` which is passed to `Bot()`.
 2. **Non-root, read-only-capable image** (`Dockerfile`) - dependencies install to `/opt/deps` instead of `/root/.local` (mode 0700, unreadable to any other user), `makemigrations` runs at build time instead of at container start so the root filesystem can be mounted read-only, the app lives in `/app`, and the container runs as uid 10001. Only `/tmp` needs to be writable at runtime, for attachment staging.
+
+   The builder stage is `python:3.6` rather than `python:3.6-slim` plus `apt-get install gcc`. Upstream pinned a `snapshot.debian.org` archive so that apt call could resolve, but that host returns 503/504 often enough to break builds outright; the full image already ships gcc 10.2.1 with the same Python 3.6.15, so the apt step and the snapshot pin are both gone. The runtime stage is still `python:3.6-slim` and the shipped image is unchanged.
 3. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
 
 Upstream's own README follows.

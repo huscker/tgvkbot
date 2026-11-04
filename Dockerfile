@@ -1,9 +1,4 @@
-FROM python:3.6-slim AS builder
-RUN printf '%s\n' \
-    'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20211220T000000Z bullseye main' \
-    'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20211220T000000Z bullseye-security main' \
-    > /etc/apt/sources.list
-RUN apt-get update && apt-get install -y gcc
+FROM python:3.6 AS builder
 COPY requirements.txt .
 RUN pip install --prefix=/opt/deps -r requirements.txt
 
