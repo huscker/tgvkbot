@@ -1,6 +1,6 @@
 from aiogram import types
 from aiogram.bot.api import FILE_URL
-from aiogram.utils import executor, json
+from aiogram.utils import json
 from aiohttp.client_exceptions import ContentTypeError
 
 from bot import *
@@ -969,4 +969,7 @@ if __name__ == '__main__':
     TASKS = vk_polling_tasks()
     asyncio.gather(*[task['task'] for task in TASKS])
 
-    executor.start_polling(dp)
+    polling = dp.loop.create_task(dp.start_polling(reset_webhook=True))
+    polling.add_done_callback(lambda task: dp.loop.stop())
+    dp.loop.run_forever()
+    polling.result()
