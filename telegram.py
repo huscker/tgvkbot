@@ -172,7 +172,8 @@ async def upload_attachment(msg, vk_user, file_id, peer_id, attachment_type, upl
                                 custom_ext=custom_ext)
     filename = (content.get('file_name', '') + content.get('custom_ext', '')) or None
     if 'content' in content:
-        vksession = VkSession(access_token=vk_user.token, driver=await get_driver(vk_user.token))
+        upload_token = VK_PHOTO_TOKEN if VK_PHOTO_TOKEN and upload_method.startswith('photos.') else vk_user.token
+        vksession = VkSession(access_token=upload_token, driver=await get_driver(upload_token))
         api = API(vksession)
         upload_options = {}
         if attachment_type != 'photo' and upload_type:

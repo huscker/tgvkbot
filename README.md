@@ -2,7 +2,7 @@
 
 Fork of [Kylmakalle/tgvkbot](https://github.com/Kylmakalle/tgvkbot) at upstream `0cc387b`, carrying three patches so the bot can be deployed in a Kubernetes cluster behind a proxy. `requirements.txt` is deliberately unchanged from upstream, so rebasing stays cheap.
 
-Replay these four on every rebase:
+Replay these five on every rebase:
 
 1. **Proxy support** (`bot.py`, `config.py`) - upstream has none: `aiohttp.ClientSession` is built without `trust_env` and `Bot()` without `proxy=`, so `HTTP_PROXY`/`HTTPS_PROXY` were ignored. `bot.py` now defaults `trust_env=True` on `ClientSession.__init__`, which also covers the sessions `aiovk.drivers` creates internally, and `config.py` exposes `PROXY_URL` which is passed to `Bot()`.
 2. **Non-root, read-only-capable image** (`Dockerfile`) - dependencies install to `/opt/deps` instead of `/root/.local` (mode 0700, unreadable to any other user), `makemigrations` runs at build time instead of at container start so the root filesystem can be mounted read-only, the app lives in `/app`, and the container runs as uid 10001. Only `/tmp` needs to be writable at runtime, for attachment staging.
@@ -10,7 +10,9 @@ Replay these four on every rebase:
    The builder stage is `python:3.6` rather than `python:3.6-slim` plus `apt-get install gcc`. Upstream pinned a `snapshot.debian.org` archive so that apt call could resolve, but that host returns 503/504 often enough to break builds outright; the full image already ships gcc 10.2.1 with the same Python 3.6.15, so the apt step and the snapshot pin are both gone. The runtime stage is still `python:3.6-slim` and the shipped image is unchanged.
 3. **Polling failures are fatal** (`telegram.py`) - upstream calls `executor.start_polling(dp)`, which creates the polling task and then calls `loop.run_forever()`. When a `getUpdates` call raises (a timeout or a reset connection, routine behind an unstable proxy) the polling task dies but the loop keeps running, so the process stays alive and healthy-looking while the bot is deaf. The replacement stops the loop when the polling task finishes and re-raises its exception, so the container exits non-zero and the orchestrator restarts it. This also drops `executor`'s `_startup`, whose only action was an un-retried `getMe` that killed the container outright when the proxy dropped it.
 
-4. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
+4. **Separate token for photo uploads** (`telegram.py`, `config.py`) - the Marusia token (`client_id=6463690`) grants `messages` but not `photos`, so `photos.getMessagesUploadServer` fails with error 15 subcode 1133 and no photo can be sent to VK. When `VK_PHOTO_TOKEN` is set, `upload_attachment` uses it for `photos.*` calls only; the message itself is still sent with the main token. Unset, it falls back to the main token and behaves as upstream. Obtain the extra token from VFeed (`client_id=4083558`), which holds `photos`.
+
+5. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
 
 Upstream's own README follows.
 

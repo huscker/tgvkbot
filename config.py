@@ -38,6 +38,8 @@ SENTRY_URL = os.environ.get('SENTRY_URL', None)
 
 PROXY_URL = os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY') or None
 
+VK_PHOTO_TOKEN = os.environ.get('VK_PHOTO_TOKEN') or None
+
 if SENTRY_URL:
     import sentry_sdk
 
