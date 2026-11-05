@@ -2,7 +2,7 @@
 
 Fork of [Kylmakalle/tgvkbot](https://github.com/Kylmakalle/tgvkbot) at upstream `0cc387b`, carrying three patches so the bot can be deployed in a Kubernetes cluster behind a proxy. `requirements.txt` is deliberately unchanged from upstream, so rebasing stays cheap.
 
-Replay these eight on every rebase:
+Replay these nine on every rebase:
 
 1. **Proxy support** (`bot.py`, `config.py`) - upstream has none: `aiohttp.ClientSession` is built without `trust_env` and `Bot()` without `proxy=`, so `HTTP_PROXY`/`HTTPS_PROXY` were ignored. `bot.py` now defaults `trust_env=True` on `ClientSession.__init__`, which also covers the sessions `aiovk.drivers` creates internally, and `config.py` exposes `PROXY_URL` which is passed to `Bot()`.
 2. **Non-root, read-only-capable image** (`Dockerfile`) - dependencies install to `/opt/deps` instead of `/root/.local` (mode 0700, unreadable to any other user), `makemigrations` runs at build time instead of at container start so the root filesystem can be mounted read-only, the app lives in `/app`, and the container runs as uid 10001. Only `/tmp` needs to be writable at runtime, for attachment staging.
@@ -18,7 +18,9 @@ Replay these eight on every rebase:
 
 7. **Delivery confirmation and a visible VK auth failure** (`telegram.py`, `vk_messages.py`) - upstream is silent on success and only speaks up on failure, so a message that never reached VK looked identical to one that did. `vk_sender` now reacts to the Telegram message with a thumbs-up on its success path, which covers text, photos, documents and voice in one place. `setMessageReaction` is Bot API 7.0 and far newer than aiogram 1.2.2, but `Bot.request()` takes a raw method name so no library change is needed. Separately, when the long-poll loop hits `VkAuthError` it disables polling permanently; it now also messages the owner, because otherwise the bridge goes quiet with the pod still reporting healthy. It deliberately does not exit the process: the Telegram side is how the owner re-authorizes, so killing it would make recovery impossible.
 
-8. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
+8. **Stop swallowing VK API errors** (`vk_messages.py`) - the long-poll loop ended with `except VkAPIError: pass`, so any VK API failure while processing an incoming message discarded that message with no log line, no traceback and no change in pod health. Debugging a "messages stopped arriving" report against that is guesswork. It now logs the exception and keeps polling, which is the same recovery with the failure made visible.
+
+9. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
 
 Upstream's own README follows.
 

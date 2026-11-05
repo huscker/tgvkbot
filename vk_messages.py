@@ -1185,8 +1185,7 @@ async def vk_polling(vkuser: VkUser):
         except aiohttp.client_exceptions.ServerDisconnectedError:
             log.warning('Longpoll server disconnected id: ' + str(vkuser.pk))
         except VkAPIError:
-            # Invalid/Inaccessible token
-            pass
+            log.exception('VK API error while polling id {}'.format(vkuser.pk), exc_info=True)
         except Exception:
             log.exception(msg='Error in longpolling', exc_info=True)
             await asyncio.sleep(5)
