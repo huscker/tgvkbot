@@ -1151,8 +1151,12 @@ async def vk_polling(vkuser: VkUser):
             api = API(session)
             lp = LongPoll(session, mode=10, version=4)
             await lp._get_long_poll_server()
-            if vkuser.last_ts:
-                lp.ts = vkuser.last_ts
+            if vkuser.last_ts and vkuser.last_ts != lp.ts:
+                missed = await api('messages.getLongPollHistory', ts=vkuser.last_ts)
+                history = missed.get('history') or []
+                log.warning('Replaying {} missed events for id {}'.format(len(history), vkuser.pk))
+                for event in history:
+                    await process_longpoll_event(api, event)
             last_check = 0
             while True:
                 now = time.time()
