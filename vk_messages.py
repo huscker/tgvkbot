@@ -1143,6 +1143,25 @@ async def process_attachment(attachment, token=None, vk_msg_url=None):
         return {'content': f'<a href="{wall_reply_url}">💬 Комментарий к записи</a>{reply_text}', 'type': 'text'}
 
 
+async def forward_unread(api, vkuser):
+    for forward in Forward.objects.filter(owner=vkuser.owner):
+        peer_id = forward.vkchat.cid
+        conversations = await api('messages.getConversationsById', peer_ids=peer_id)
+        items = conversations.get('items') or []
+        unread = items[0].get('unread_count') or 0 if items else 0
+        if not unread:
+            continue
+        history = await api('messages.getHistory', peer_id=peer_id, count=min(unread, 20))
+        pending = [m for m in reversed(history.get('items') or [])
+                   if not m.get('out') and not Message.objects.filter(vk_id=m['id']).exists()]
+        if pending:
+            log.warning('Forwarding {} unread messages from peer {}'.format(len(pending), peer_id))
+        for message in pending:
+            attaches = {'from': str(message['from_id'])} if peer_id > 2000000000 else {}
+            await process_longpoll_event(
+                api, [4, message['id'], 1, peer_id, message['date'], message.get('text') or '', attaches])
+
+
 async def vk_polling(vkuser: VkUser):
     log.warning('Starting polling for: id ' + str(vkuser.pk))
     while True:
@@ -1168,6 +1187,7 @@ async def vk_polling(vkuser: VkUser):
                     await process_longpoll_event(
                         api, [4, m['id'], 1, missed_peer, m['date'], m.get('text') or '', attaches])
                 VkUser.objects.filter(pk=vkuser.pk).update(last_ts=lp.ts)
+            await forward_unread(api, vkuser)
             last_check = 0
             while True:
                 now = time.time()
