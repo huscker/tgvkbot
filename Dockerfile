@@ -9,7 +9,6 @@ ENV PYTHONPATH=/opt/deps/lib/python3.6/site-packages
 ENV PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY . .
-RUN DATABASE_URL="sqlite://:memory:" python manage.py makemigrations data
 RUN useradd -u 10001 -r -s /usr/sbin/nologin appuser
 USER 10001
 ENTRYPOINT ["sh", "-c", "python manage.py migrate data && exec python telegram.py"]
