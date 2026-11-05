@@ -171,6 +171,8 @@ async def upload_attachment(msg, vk_user, file_id, peer_id, attachment_type, upl
     content = await get_content(url, default_name, chrome_headers=False, rewrite_name=rewrite_name,
                                 custom_ext=custom_ext)
     filename = (content.get('file_name', '') + content.get('custom_ext', '')) or None
+    if attachment_type == 'photo':
+        filename = 'photo.png' if msg.content_type == 'sticker' else 'photo.jpg'
     if 'content' in content:
         upload_token = VK_PHOTO_TOKEN if VK_PHOTO_TOKEN and upload_method.startswith('photos.') else vk_user.token
         vksession = VkSession(access_token=upload_token, driver=await get_driver(upload_token))
