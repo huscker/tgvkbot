@@ -117,6 +117,11 @@ async def vk_sender(token, tg_message, **kwargs):
         tg_chat=tg_message.chat.id,
         tg_id=tg_message.message_id
     )
+    await bot.request('setMessageReaction', {
+        'chat_id': tg_message.chat.id,
+        'message_id': tg_message.message_id,
+        'reaction': json.dumps([{'type': 'emoji', 'emoji': '👍'}])
+    })
     return vk_msg_id
 
 

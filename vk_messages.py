@@ -1171,6 +1171,10 @@ async def vk_polling(vkuser: VkUser):
             log.error('Auth Error! {}'.format(vkuser.pk))
             vkuser.is_polling = False
             vkuser.save()
+            await bot.send_message(
+                vkuser.owner.uid,
+                'Авторизация ВКонтакте больше недействительна, пересылка из ВК остановлена. '
+                'Выполни /start чтобы войти заново.')
             break
         except TimeoutError:
             log.warning('Polling timeout')
