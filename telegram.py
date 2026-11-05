@@ -225,25 +225,25 @@ async def get_dialogs(token, exclude=None):
         exclude = []
     session = VkSession(access_token=token, driver=await get_driver(token))
     api = API(session)
-    dialogs = await api('messages.getDialogs', count=200)
+    dialogs = await api('messages.getConversations', count=200)
     order = []
     users_ids = []
     group_ids = []
-    for chat in dialogs.get('items'):
-        chat = chat.get('message', '')
-        if chat:
-            if 'chat_id' in chat:
-                if 2000000000 + chat['chat_id'] not in exclude:
-                    chat['title'] = chat['title']
-                    order.append({'title': chat['title'], 'id': 2000000000 + chat['chat_id']})
-            elif chat['user_id'] > 0:
-                if chat['user_id'] not in exclude:
-                    order.append({'title': 'Диалог ' + str(chat['user_id']), 'id': chat['user_id']})
-                    users_ids.append(chat['user_id'])
-            elif chat['user_id'] < 0:
-                if chat['user_id'] not in exclude:
-                    order.append({'title': 'Диалог ' + str(chat['user_id']), 'id': chat['user_id']})
-                    group_ids.append(chat['user_id'])
+    for item in dialogs.get('items'):
+        conversation = item.get('conversation', {})
+        peer = conversation.get('peer', {})
+        peer_id = peer.get('id')
+        if peer_id is None or peer_id in exclude:
+            continue
+        if peer['type'] == 'chat':
+            title = conversation.get('chat_settings', {}).get('title', 'Беседа')
+            order.append({'title': title, 'id': peer_id})
+        elif peer['type'] == 'user':
+            order.append({'title': 'Диалог ' + str(peer_id), 'id': peer_id})
+            users_ids.append(peer_id)
+        elif peer['type'] == 'group':
+            order.append({'title': 'Диалог ' + str(peer_id), 'id': peer_id})
+            group_ids.append(peer_id)
 
     if users_ids:
         users = await api('users.get', user_ids=', '.join(str(x) for x in users_ids))

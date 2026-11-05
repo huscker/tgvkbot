@@ -2,7 +2,7 @@
 
 Fork of [Kylmakalle/tgvkbot](https://github.com/Kylmakalle/tgvkbot) at upstream `0cc387b`, carrying three patches so the bot can be deployed in a Kubernetes cluster behind a proxy. `requirements.txt` is deliberately unchanged from upstream, so rebasing stays cheap.
 
-Replay these five on every rebase:
+Replay these six on every rebase:
 
 1. **Proxy support** (`bot.py`, `config.py`) - upstream has none: `aiohttp.ClientSession` is built without `trust_env` and `Bot()` without `proxy=`, so `HTTP_PROXY`/`HTTPS_PROXY` were ignored. `bot.py` now defaults `trust_env=True` on `ClientSession.__init__`, which also covers the sessions `aiovk.drivers` creates internally, and `config.py` exposes `PROXY_URL` which is passed to `Bot()`.
 2. **Non-root, read-only-capable image** (`Dockerfile`) - dependencies install to `/opt/deps` instead of `/root/.local` (mode 0700, unreadable to any other user), `makemigrations` runs at build time instead of at container start so the root filesystem can be mounted read-only, the app lives in `/app`, and the container runs as uid 10001. Only `/tmp` needs to be writable at runtime, for attachment staging.
@@ -12,7 +12,9 @@ Replay these five on every rebase:
 
 4. **Separate token for photo uploads** (`telegram.py`, `config.py`) - the Marusia token (`client_id=6463690`) grants `messages` but not `photos`, so `photos.getMessagesUploadServer` fails with error 15 subcode 1133 and no photo can be sent to VK. When `VK_PHOTO_TOKEN` is set, `upload_attachment` uses it for `photos.*` calls only; the message itself is still sent with the main token. Unset, it falls back to the main token and behaves as upstream. Obtain the extra token from VFeed (`client_id=4083558`), which holds `photos`.
 
-5. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
+5. **`messages.getDialogs` replaced** (`telegram.py`) - VK removed that method; it now returns error 3 "Unknown method passed", which broke `/dialogs` and, more importantly, `handle_join`, the picker that binds a Telegram group to a VK dialog. `get_dialogs` now calls `messages.getConversations` and reads `item["conversation"]["peer"]`, keeping the same `order` shape so the rest of the function is unchanged. Note `search_dialogs` still calls `messages.searchDialogs`, which is likely removed too; `/search` is untouched.
+
+6. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
 
 Upstream's own README follows.
 
