@@ -1158,11 +1158,16 @@ async def vk_polling(vkuser: VkUser):
                     log.warning('Cannot replay from ts {} for id {}: {}'.format(vkuser.last_ts, vkuser.pk, error))
                     VkUser.objects.filter(pk=vkuser.pk).update(last_ts=lp.ts)
                     missed = {}
-                history = missed.get('history') or []
-                if history:
-                    log.warning('Replaying {} missed events for id {}'.format(len(history), vkuser.pk))
-                for event in history:
-                    await process_longpoll_event(api, event)
+                items = (missed.get('messages') or {}).get('items') or []
+                incoming = [m for m in items if not m.get('out')]
+                if incoming:
+                    log.warning('Replaying {} missed messages for id {}'.format(len(incoming), vkuser.pk))
+                for m in incoming:
+                    missed_peer = m['peer_id']
+                    attaches = {'from': str(m['from_id'])} if missed_peer > 2000000000 else {}
+                    await process_longpoll_event(
+                        api, [4, m['id'], 1, missed_peer, m['date'], m.get('text') or '', attaches])
+                VkUser.objects.filter(pk=vkuser.pk).update(last_ts=lp.ts)
             last_check = 0
             while True:
                 now = time.time()
