@@ -973,11 +973,21 @@ async def handle_chat_migration(msg: types.Message):
                                reply_markup=markup)
 
 
+async def telegram_polling():
+    while True:
+        try:
+            await dp.start_polling(reset_webhook=True)
+            return
+        except (asyncio.TimeoutError, NetworkError, aiohttp.ClientError):
+            log.exception('Telegram polling failed, retrying', exc_info=True)
+            await asyncio.sleep(5)
+
+
 if __name__ == '__main__':
     TASKS = vk_polling_tasks()
     asyncio.gather(*[task['task'] for task in TASKS])
 
-    polling = dp.loop.create_task(dp.start_polling(reset_webhook=True))
+    polling = dp.loop.create_task(telegram_polling())
     polling.add_done_callback(lambda task: dp.loop.stop())
     dp.loop.run_forever()
     polling.result()

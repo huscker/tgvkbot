@@ -2,7 +2,7 @@
 
 Fork of [Kylmakalle/tgvkbot](https://github.com/Kylmakalle/tgvkbot) at upstream `0cc387b`, carrying three patches so the bot can be deployed in a Kubernetes cluster behind a proxy. `requirements.txt` is deliberately unchanged from upstream, so rebasing stays cheap.
 
-Replay these nine on every rebase:
+Replay these ten on every rebase:
 
 1. **Proxy support** (`bot.py`, `config.py`) - upstream has none: `aiohttp.ClientSession` is built without `trust_env` and `Bot()` without `proxy=`, so `HTTP_PROXY`/`HTTPS_PROXY` were ignored. `bot.py` now defaults `trust_env=True` on `ClientSession.__init__`, which also covers the sessions `aiovk.drivers` creates internally, and `config.py` exposes `PROXY_URL` which is passed to `Bot()`.
 2. **Non-root, read-only-capable image** (`Dockerfile`) - dependencies install to `/opt/deps` instead of `/root/.local` (mode 0700, unreadable to any other user), `makemigrations` runs at build time instead of at container start so the root filesystem can be mounted read-only, the app lives in `/app`, and the container runs as uid 10001. Only `/tmp` needs to be writable at runtime, for attachment staging.
@@ -20,7 +20,9 @@ Replay these nine on every rebase:
 
 8. **Stop swallowing VK API errors** (`vk_messages.py`) - the long-poll loop ended with `except VkAPIError: pass`, so any VK API failure while processing an incoming message discarded that message with no log line, no traceback and no change in pod health. Debugging a "messages stopped arriving" report against that is guesswork. It now logs the exception and keeps polling, which is the same recovery with the failure made visible.
 
-9. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
+9. **Survive proxy blips and resume where the long-poll left off** (`telegram.py`, `vk_messages.py`, `data/models.py`) - patch 3 made a dead Telegram polling task exit the process so the orchestrator would restart it. Behind a flaky proxy that fires roughly hourly, and a restart is not free: the VK long-poll asks `messages.getLongPollServer` for a fresh `ts`, so every VK message that arrived while the container was down is skipped forever. Telegram polling now retries in place on `TimeoutError`, `NetworkError` and `aiohttp.ClientError` instead of exiting, and anything else still ends the process. `VkUser` gains `last_ts`, saved after each batch and restored on startup, so the long-poll resumes from the last processed event. A `ts` that VK considers too old is answered with `failed: 1` and a fresh cursor, so a long outage degrades to the old behaviour rather than breaking.
+
+10. **CI** (`.github/workflows/`) - publishes to GHCR with SHA-pinned actions, replacing the unpinned `elgohr/Publish-Docker-Github-Action@master` that held registry push credentials.
 
 Upstream's own README follows.
 

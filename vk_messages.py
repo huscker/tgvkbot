@@ -1150,6 +1150,9 @@ async def vk_polling(vkuser: VkUser):
             session = VkSession(access_token=vkuser.token, driver=await get_driver(vkuser.token))
             api = API(session)
             lp = LongPoll(session, mode=10, version=4)
+            await lp._get_long_poll_server()
+            if vkuser.last_ts:
+                lp.ts = vkuser.last_ts
             last_check = 0
             while True:
                 now = time.time()
@@ -1163,6 +1166,7 @@ async def vk_polling(vkuser: VkUser):
                 if data['updates']:
                     for update in data['updates']:
                         await process_longpoll_event(api, update)
+                VkUser.objects.filter(pk=vkuser.pk).update(last_ts=lp.ts)
             break
         except VkLongPollError:
             log.error('Longpoll error! {}'.format(vkuser.pk))

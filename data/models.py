@@ -63,6 +63,7 @@ class VkUser(models.Model):
 
     token = models.TextField(unique=True)
     is_polling = models.BooleanField(default=False)
+    last_ts = models.BigIntegerField(null=True, default=None)
     owner = models.ForeignKey(TgUser, on_delete=models.CASCADE)
 
     class Meta:
